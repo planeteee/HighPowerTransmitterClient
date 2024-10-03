@@ -18,9 +18,9 @@ import androidx.annotation.Nullable;
 
 import com.xing.hptc.R;
 
-public class ElectrDashboardView extends View {
+public class ElectrDashboardCurrentView extends View {
 
-    private static final String TAG="ElectrDashboardView";
+    private static final String TAG="ElectrDashboardCurrentView";
     private static final int DEFAULT_COLOR_LOWER = Color.parseColor("#1d953f");//下游颜色
     private static final int DEFAULT_COLOR_MIDDLE = Color.parseColor("#228fbd");//中间颜色
     private static final int DEFAULT_COLOR_HIGH = Color.RED;//高的颜色
@@ -54,19 +54,19 @@ public class ElectrDashboardView extends View {
     private Paint titlePaint;//标题画笔
     private Path pointerPath;//指示器路径
 
-    private int minValue=-1200;
-    private int maxValue=1200;
-    private  int step=10;
+    private int minValue=-20;
+    private int maxValue=20;
+    private  int step=1;
 
-    public ElectrDashboardView(Context context) {
+    public ElectrDashboardCurrentView(Context context) {
         this(context, null);
     }
 
-    public ElectrDashboardView(Context context, @Nullable AttributeSet attrs) {
+    public ElectrDashboardCurrentView(Context context, @Nullable AttributeSet attrs) {
         this(context, attrs, 0);
     }
 
-    public ElectrDashboardView(Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
+    public ElectrDashboardCurrentView(Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
 
         //初始化属性
@@ -244,7 +244,8 @@ public class ElectrDashboardView extends View {
     private void drawTitleDial(Canvas canvas){
         titlePaint.setColor(titleDialColor);
         titlePaint.setTextSize(titleDialSize);
-        canvas.rotate( -47.7f);       //恢复坐标系为起始中心位置
+        //canvas.rotate( -47.7f);       //恢复坐标系为起始中心位置
+        canvas.rotate( -51f);       //恢复坐标系为起始中心位置
         //canvas.drawText(titleDial, 0, -radiusDial / 3, titlePaint);
         canvas.drawText(titleDial, 0, radiusDial / 3, titlePaint);  //标题的绘制位置
 
@@ -257,7 +258,7 @@ public class ElectrDashboardView extends View {
         }
         titlePaint.setTextSize(valueTextSize);
         //canvas.drawText(currentValue + "%", 0, radiusDial * 2/3, titlePaint);
-        canvas.drawText(currentValue + "V", 0, radiusDial * 2/3, titlePaint);   //当前值的绘制位置
+        canvas.drawText(currentValue + "A", 0, radiusDial * 2/3, titlePaint);   //当前值的绘制位置
     }
 
     //画旋转的指针
@@ -266,11 +267,11 @@ public class ElectrDashboardView extends View {
 
 
         if(currentValue==0){
-            currentDegree=-90+2;
+            currentDegree=-90;
         }else  if(currentValue>0){
-            currentDegree = (int) (currentValue*50/1200 * 2.7 -90 )+2;
+            currentDegree = (int) (currentValue*60*50/1200 * 2.7 -90 );
         }else {
-            currentDegree = (int) (-90+currentValue*50/1200 * 2.7  )+2;
+            currentDegree = (int) (-90+currentValue*60*50/1200 * 2.7  );
 
         }
         //currentDegree = (int) (currentValue * 2.7 + 135);

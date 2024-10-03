@@ -70,7 +70,6 @@ public class SocketClientHptc extends AsyncTask {
             requestShakeHands();
 
             readMsgInternal();
-
         } catch (Exception e) {
             e.printStackTrace();
             Log.d(TAG, "run Exception: "+e.getMessage());
@@ -81,7 +80,6 @@ public class SocketClientHptc extends AsyncTask {
             isConnected = false;
             return;
         }
-
         mHandler.sendEmptyMessage(EnumSockteResult.MSG_SOCKET_CONNECTOK.ordinal());
     }
 
@@ -97,6 +95,7 @@ public class SocketClientHptc extends AsyncTask {
                 int count = mInStream.read(buffer);
 
                 byte[] dataArr= Arrays.copyOfRange(buffer,0,count);
+
                 LogToFile.d(TAG, "receivedData: :"+byteArrayToHexString(dataArr));
                 //握手成功
                 if(isSameArray(currentSendData,HptcProtocol.COM_CLIENT_SHAKE_HANDS)){
@@ -108,6 +107,7 @@ public class SocketClientHptc extends AsyncTask {
                 else {
                     //解包
                     HptcProtocol.ReceivedData rd= hptcProtocol.unpack(dataArr);
+                    LogToFile.d(TAG, "unpackedData: :"+byteArrayToHexString(rd.data));
                     if(rd!=null){
                         //开始测量
                         if(isSameArray(currentSendDataType,HptcProtocol.COM_CLIENT_PACKAGE_TYPE_MEASURE)&&
@@ -129,22 +129,15 @@ public class SocketClientHptc extends AsyncTask {
                                     continue;
                                 }
                                 String  deviceId=getDeviceId(new byte[]{rd.data[3],rd.data[2],rd.data[1],rd.data[0]});
-                                long voltage=getVoltage(new byte[]{rd.data[42],rd.data[41],rd.data[40],rd.data[39]});
-                                long current=getVoltage(new byte[]{rd.data[29],rd.data[28],rd.data[27],rd.data[26]});
-                                int temp=rd.data[25];
-                                int baterry=rd.data[23];
-                                long power=voltage*(current/1000);
-                                String str_res="-";
-                                if(current!=0){
-                                    long res=voltage/(current/1000);
-                                    str_res=String.valueOf(res);
-                                }
-                                String txt=deviceId+";"+String.valueOf(voltage)+";"+String.valueOf(current)+";"+String.valueOf(temp)+";"+String.valueOf(baterry)+";"+String.valueOf(power)+";"+String.valueOf(str_res);
-                                //str_deviceId=String.valueOf(deviceId);
+                                short voltage=getVoltage(new byte[]{rd.data[41],rd.data[42]});
+                                float current=getCurrent(new byte[]{rd.data[28],rd.data[29],rd.data[30],rd.data[31]});
+                                byte gps=rd.data[16];
+                                byte temp=rd.data[26];
+                                byte battery=rd.data[24];
+                                int power=(int)(voltage*(current/1000));
+                                String txt=deviceId+";"+String.valueOf(voltage)+";"+String.valueOf(current)+";"+String.valueOf(temp)+";"+String.valueOf(battery)+";"+String.valueOf(power)+";"+String.valueOf(gps);
                                 sendMessage(HptcProtocol.MessageType.ACTION_OK.ordinal(), HptcProtocol.DeviceAction.REQUEST_STATUS.toString()+"=="+txt);
-
                             }
-                            //sendMessage(HptcProtocol.MessageType.ACTION_OK.ordinal(), HptcProtocol.DeviceAction.REQUEST_STATUS.toString()+"++++"+str_deviceId);
 
                         }
                         //导出数据
@@ -154,7 +147,6 @@ public class SocketClientHptc extends AsyncTask {
                                     continue;
                                 }
                                 int dataNumber=rd.data.length/8;
-
                             }
                         }
 
@@ -162,41 +154,7 @@ public class SocketClientHptc extends AsyncTask {
                         //sendMessage(HptcProtocol.DeviceAction.UNKNOWN_ACTION.ordinal(),"未知动作");
                         sendMessage(HptcProtocol.MessageType.ERROR.ordinal(), HptcProtocol.DeviceAction.UNKNOWN_ACTION.toString());
                     }
-
-
-                    /*
-                    if(isSameArray(currentSendDataType,HptcProtocol.COM_CLIENT_PACKAGE_TYPE_MEASURE)){
-
-                    }
-
-                    //请求处理成功
-                    if(rd.status.equals(HptcProtocol.CommunicateStatus.OK_UNPACK)){
-                        //开始测量的响应
-                        if(isSameArray(rd.dataType,HptcProtocol.COM_CLIENT_PACKAGE_TYPE_MEASURE)){
-                            sendMessage(HptcProtocol.MessageType.ACTION_OK.ordinal(),"");
-                        }
-                    }
-                    //请求处理异常
-                    else {
-                        //sendMessage(HptcProtocol.CommunicateStatus.);
-                    }
-
-                     */
                 }
-                /*
-                else if(isSameArray(currentSendDataType,HptcProtocol.COM_CLIENT_PACKAGE_TYPE_MEASURE)){
-                    HptcProtocol.ReceivedData rd= hptcProtocol.unpack(dataArr);
-                    if(rd.status.equals(HptcProtocol.UnpackStatus.OK)){
-                        if(isSameArray(rd.dataType,))
-                    }
-                }
-
-                 */
-
-                //String str = new String(buffer, "UTF-8");
-                //Log.d(TAG, "readMsgInternal buffer:"+byteArrayToHexString(dataArr));
-                //Message msg = new Message();
-
             } catch (IOException e) {
                 e.printStackTrace();
                 isConnected = false;
@@ -432,6 +390,19 @@ public class SocketClientHptc extends AsyncTask {
         }
         return result;
     }
+    private int byteToInt(byte[] bytes){
+        int result = ByteBuffer.wrap(bytes).getInt();
+        return result;
+    }
+    private short byteToShort(byte[] bytes){
+        short result = ByteBuffer.wrap(bytes).getShort();
+        return result;
+    }
+    private  float bytesToFloat(byte[] bytes)
+    {
+        float result = ByteBuffer.wrap(bytes).getFloat();
+        return result;
+    }
     private int bytesToU16(byte[] bytes) {
         if (bytes == null || bytes.length != 2) {
             throw new IllegalArgumentException("Byte array must be non-null and have a length of 2");
@@ -467,14 +438,14 @@ public class SocketClientHptc extends AsyncTask {
     }
 
     //获取电压
-    private long getVoltage(byte[] bytes){
-        long v=bytesToU32(bytes);
+    private short getVoltage(byte[] bytes){
+        short v=byteToShort(bytes);
         return v;
     }
     //获取电流
-    private long getCurrent(byte[] bytes){
-        long v=bytesToU32(bytes);
-        return v;
+    private float getCurrent(byte[] bytes){
+        float c=bytesToFloat(bytes);
+        return c;
     }
 }
 

@@ -14,7 +14,7 @@ public class HptcProtocol {
     /**
      * 握手请求
      */
-    public static final byte[] COM_SHAKE_HANDS_REQUEST = {(byte)0xc3,(byte)0xc3,(byte)0xc3,(byte)0xc3};;
+    public static final byte[] COM_SHAKE_HANDS_REQUEST = {(byte)0xc3,(byte)0xc3,(byte)0xc3,(byte)0xc3};
 
     /**
      * 握手成功
@@ -310,7 +310,7 @@ public class HptcProtocol {
                 }
             }
             //byte[] crc=makefcs(pack);
-            byte[] crc=lowSum(pack);
+            byte[] crc=byteSum(pack);
             for (int  i=0;i<packWithCrc.length;i++){
                 if(i<packWithCrc.length-2){
                     packWithCrc[i]=pack[i];
@@ -330,6 +330,9 @@ public class HptcProtocol {
      */
     public ReceivedData unpack(byte[] data){
         ReceivedData rd=null;
+        for(int i=0;i<data.length;i++){
+            data[i]=(byte)(data[i] & 0xFF);
+        }
         if(data.length>=16){
             rd=new ReceivedData();
             byte[] unpackHead=new byte[4];
@@ -392,7 +395,7 @@ public class HptcProtocol {
                         dataWithOutCRC[i]=data[i];
                     }
                     //byte[] crcCalc=makefcs(dataWithOutCRC);
-                    byte[] crcCalc=lowSum(dataWithOutCRC);
+                    byte[] crcCalc=byteSum(dataWithOutCRC);
 
                     if(!isSameArray(unpackCRC,crcCalc)){
                         rd.status= CommunicateStatus.ERROR_UNPACK_CRC_NOT_MATCHED;
@@ -530,6 +533,18 @@ public class HptcProtocol {
         byte[] resultByteArray = {(byte) ((sum >> 4) & 0x0F), (byte) (sum & 0x0F)};
         return resultByteArray;
     }
+
+    private byte[] byteSum(byte[] data){
+        int sum = 0;
+        for (byte b : data) {
+            int lower16Bits = b & 0x00FF; //
+            sum += lower16Bits;
+        }
+        // 将求和结果存为2位的新字节数组
+        byte[] resultByteArray = {(byte) ((sum >> 8) & 0xFF), (byte) (sum & 0xFF)};
+        return resultByteArray;
+    }
+
 
     /**
      * 判断2个数组值是否相等

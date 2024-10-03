@@ -54,7 +54,7 @@
                 <TextView
                     android:id="@+id/tv_device_name"
                     android:layout_marginLeft="20sp"
-                    android:text="wifi"
+                    android:text="wifi_ssid"
                     android:textSize="15sp"
                     android:gravity="left"
                     android:textColor="@color/white"
@@ -66,7 +66,6 @@
                     android:layout_height="match_parent"
                     android:textColor="@color/white"
                     android:theme="@style/MyCheckBox"
-                    android:visibility="gone"
                     android:text="连接设备"/>
             </LinearLayout>
             <LinearLayout
@@ -76,6 +75,7 @@
                 android:layout_weight="50"
                 android:paddingRight="20sp">
                 <Button
+                    android:id="@+id/btn_set_parameter"
                     android:layout_width="80sp"
                     android:layout_height="36sp"
                     android:paddingBottom="1sp"
@@ -86,6 +86,7 @@
                     android:layout_marginLeft="40sp"
                     android:background="#00E26B"/>
                 <Button
+                    android:id="@+id/btn_export_data"
                     android:layout_width="80sp"
                     android:layout_height="36sp"
                     android:paddingBottom="1sp"
@@ -112,33 +113,37 @@
 
 
         </LinearLayout>
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="0sp"
-            android:gravity="center_horizontal"
             android:layout_weight="40"
-            android:paddingTop="20sp"
-            android:orientation="horizontal">
-            <com.xing.hptc.view.ElectrDashboardView
+            android:gravity="center_horizontal"
+            android:orientation="horizontal"
+            android:paddingTop="10sp">
+
+            <com.xing.hptc.view.ElectrDashboardVoltageView
                 android:id="@+id/voltage_dashboard"
-                android:layout_width="140sp"
-                android:layout_height="140sp"
-                app:text_title_dial="电压"
-                app:text_title_size="12sp"
-                app:text_title_color="@color/white"
+                android:layout_width="150sp"
+                android:layout_height="150sp"
                 app:stroke_width_dial="2sp"
-                app:text_size_value="12sp"/>
-            <com.xing.hptc.view.ElectrDashboardView
+                app:text_size_value="12sp"
+                app:text_title_color="@color/white"
+                app:text_title_dial="电压"
+                app:text_title_size="12sp" />
+
+            <com.xing.hptc.view.ElectrDashboardCurrentView
                 android:id="@+id/current_dashboard"
+                android:layout_width="150sp"
+                android:layout_height="150sp"
                 android:layout_marginLeft="140sp"
-                android:layout_width="140sp"
-                android:layout_height="140sp"
-                app:text_title_dial="电压"
-                app:text_title_size="12sp"
-                app:text_title_color="@color/white"
                 app:stroke_width_dial="2sp"
-                app:text_size_value="12sp"/>
+                app:text_size_value="12sp"
+                app:text_title_color="@color/white"
+                app:text_title_dial="电流"
+                app:text_title_size="12sp" />
         </LinearLayout>
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="0sp"
@@ -411,7 +416,7 @@
                 android:layout_height="36sp"
                 android:paddingBottom="1sp"
                 android:paddingTop="1sp"
-                android:text="开始发射"
+                android:text="开始测量"
                 android:textSize="15sp"
                 android:textAlignment="center"
                 android:layout_marginLeft="40sp"
@@ -428,6 +433,7 @@
                 android:layout_marginLeft="40sp"
                 android:background="@color/cardview_dark_background"/>
             <Button
+                android:id="@+id/btn_save_data"
                 android:layout_width="120sp"
                 android:layout_height="36sp"
                 android:paddingBottom="1sp"
@@ -464,13 +470,6 @@
 
     </LinearLayout>
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Hello World!"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+
 
 </androidx.constraintlayout.widget.ConstraintLayout>

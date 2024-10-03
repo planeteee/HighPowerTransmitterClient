@@ -4,11 +4,16 @@ import static android.provider.AlarmClock.EXTRA_MESSAGE;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
+import android.Manifest;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
+import android.database.sqlite.SQLiteDatabase;
 import android.net.NetworkInfo;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
@@ -30,7 +35,11 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.xing.hptc.view.ElectrDashboardView;
+import com.xing.database.DatabaseHelper;
+import com.xing.database.DeviceStatusData;
+import com.xing.database.DeviceStatusDataDAO;
+import com.xing.hptc.view.ElectrDashboardCurrentView;
+import com.xing.hptc.view.ElectrDashboardVoltageView;
 import com.xing.hptc.view.WifiActivity;
 import com.xing.net.HptcProtocol;
 import com.xing.net.SocketClientHptc;
@@ -39,13 +48,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class MainActivity extends AppCompatActivity {
 
+    private static final int STORAGE_PERMISSION_CODE = 100;
     private  static final String TAG="HPTC MainActivity";
     private static final String DEVICE_NAME_CHARS = "FSG_";
     private String ip;
@@ -58,7 +70,7 @@ public class MainActivity extends AppCompatActivity {
     private SocketClientHptc socketClientHptc;
     private final Executor executor = Executors.newSingleThreadExecutor();
 
-    private ElectrDashboardView voltage_dashboard;
+
 
     private Timer timer;
 
@@ -70,6 +82,25 @@ public class MainActivity extends AppCompatActivity {
     private LinearLayout ll_wifi;
     private TextView tv_device_name;
     private Button btn_getDeviceStatus;
+    private Button btn_save_data;
+    private Button btn_export_data;
+    private Button btn_set_parameter;
+    private TextView tv_deviceId;
+    private TextView tv_voltage;
+    private TextView tv_current;
+    private TextView tv_power;
+    private TextView tv_temp;
+    private TextView tv_battery;
+    private TextView tv_gps;
+
+
+    private ElectrDashboardVoltageView voltage_dashboard;
+    private ElectrDashboardCurrentView current_dashboard;
+
+    /*----------------- database ----------------*/
+    private ExecutorService executorService;
+    private DatabaseHelper dbHelper;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,15 +109,24 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        // 检查并请求存储权限
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            requestStoragePermission();
+        }
 
         //隐藏状态栏
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,WindowManager.LayoutParams.FLAG_FULLSCREEN);
         //隐离导航栏(可选)
-        getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
+        //getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
 
+        //数据库
+        dbHelper = new DatabaseHelper(this);
+        executorService = Executors.newSingleThreadExecutor(); // 创建一个单线程池
 
         voltage_dashboard=findViewById(R.id.voltage_dashboard);
         voltage_dashboard.setNum(-0);
+        current_dashboard=findViewById(R.id.current_dashboard);
+        current_dashboard.setNum(-0);
 
         btn_test=findViewById(R.id.btn_test);
         btn_test.setOnClickListener(new View.OnClickListener() {
@@ -101,7 +141,12 @@ public class MainActivity extends AppCompatActivity {
                 //voltage_dashboard.setCompleteDegree(testValueF);
             }
         });
-
+        tv_deviceId=findViewById(R.id.tv_deviceId);
+        tv_voltage=findViewById(R.id.tv_voltage);
+        tv_current=findViewById(R.id.tv_current);
+        tv_power=findViewById(R.id.tv_power);
+        tv_temp=findViewById(R.id.tv_temp);
+        tv_battery=findViewById(R.id.tv_battery);
 
         //连接复选框
         cb_connect=findViewById(R.id.cb_connect);
@@ -178,12 +223,12 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void run() {
                         String txt= btn_transmit.getText().toString();
-                        if(txt.startsWith("开始")){
+                        if(txt.startsWith("开始测量")){
                             if(socketClientHptc!=null){
                                 socketClientHptc.requestStartMeasure();
 
                             }
-                        }else if(txt.startsWith("停止")){
+                        }else if(txt.startsWith("停止测量")){
                             if(socketClientHptc!=null){
                                 socketClientHptc.requestStopMeasure();
                             }
@@ -208,6 +253,65 @@ public class MainActivity extends AppCompatActivity {
                 });
             }
         });
+
+        //保存数据
+        btn_save_data=findViewById(R.id.btn_save_data);
+        btn_save_data.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                String deviceId=tv_deviceId.getText().toString();
+                String voltage=tv_voltage.getText().toString();
+                String current=tv_current.getText().toString();
+                String power=tv_power.getText().toString();
+                String temp=tv_temp.getText().toString();
+                String battery=tv_battery.getText().toString();
+                String gps=tv_gps.getText().toString();
+                // 插入数据到数据库
+                executorService.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        String saveMsg="";
+                        try {
+                            SQLiteDatabase db = dbHelper.getWritableDatabase();
+                            DeviceStatusDataDAO dao = new DeviceStatusDataDAO(db);
+                            dao.insert(new DeviceStatusData(deviceId, voltage,current,power,temp,battery,gps,""));
+                            db.close();
+                            saveMsg="数据保存成功";
+                        }catch (Exception e)
+                        {
+                            saveMsg="数据保存异常："+e.getMessage();
+                            Log.e("DatabaseError", "插入设备状态数据时发生错误: " + saveMsg, e);
+                        }
+                        String finalSaveMsg = saveMsg;
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                Toast.makeText(getApplicationContext(), finalSaveMsg,Toast.LENGTH_SHORT).show();
+                            }
+                        });
+                    }
+                });
+            }
+        });
+
+        //导出数据
+        btn_export_data=findViewById(R.id.btn_export_data);
+        btn_export_data.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                startDataExportActivity();
+            }
+        });
+
+        //btn_set_parameter
+        btn_set_parameter=findViewById(R.id.btn_set_parameter);
+        btn_set_parameter.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+
+            }
+        });
+
         // 创建一个定时器
         timer = new Timer();
         // 设置定时任务
@@ -246,7 +350,8 @@ public class MainActivity extends AppCompatActivity {
 
     private void startCommunicate(){
         if(socketClientHptc==null){
-            socketClientHptc=new SocketClientHptc("192.168.3.121",3000,new Handler(){
+            //socketClientHptc=new SocketClientHptc("192.168.3.121",3000,new Handler(){
+            socketClientHptc=new SocketClientHptc("192.168.11.1",20000,new Handler(){
                 String msgObjStr="";
 
                 @Override
@@ -301,24 +406,22 @@ public class MainActivity extends AppCompatActivity {
                                     String temp=valuse[3];
                                     String battery=valuse[4];
                                     String power=valuse[5];
-                                    String res=valuse[6];
+                                    String gps=valuse[6];
+                                    //String res=valuse[7];
 
-                                    TextView tv_deviceId=findViewById(R.id.tv_deviceId);
                                     tv_deviceId.setText(deviceId);
-                                    TextView tv_voltage=findViewById(R.id.tv_voltage);
                                     tv_voltage.setText(voltage);
-                                    TextView tv_current=findViewById(R.id.tv_current);
                                     tv_current.setText(current);
-                                    TextView tv_power=findViewById(R.id.tv_power);
                                     tv_power.setText(power);
-                                    TextView tv_temp=findViewById(R.id.tv_temp);
                                     tv_temp.setText(temp);
-                                    TextView tv_battery=findViewById(R.id.tv_battery);
                                     tv_battery.setText(battery);
-                                    TextView tv_res=findViewById(R.id.tv_res);
-                                    tv_res.setText(res);
-                                    ElectrDashboardView voltage_dashboard= findViewById(R.id.voltage_dashboard);
+                                    //TextView tv_res=findViewById(R.id.tv_res);
+                                    //tv_res.setText(res);
+                                    tv_gps.setText(gps);
+                                    //ElectrDashboardVoltageView voltage_dashboard= findViewById(R.id.voltage_dashboard);
                                     voltage_dashboard.setNumAnimator(Integer.parseInt(voltage));
+                                    //ElectrDashboardCurrentView cu= findViewById(R.id.voltage_dashboard);
+                                    current_dashboard.setNumAnimator(Float.parseFloat(current));
                                     Toast.makeText(getApplicationContext(),msgObjStr,Toast.LENGTH_SHORT).show();
                                 }
                             });
@@ -335,6 +438,11 @@ public class MainActivity extends AppCompatActivity {
         Intent intent = new Intent(this, WifiActivity.class);
         intent.putExtra(EXTRA_MESSAGE,"CODE");
         startActivity(intent);
+    }
+    private void startDataExportActivity() {
+        Intent intent = new Intent(this,DataExportActivity.class);
+        startActivity(intent);
+
     }
     private void socketCommunicate() {
         try {
@@ -378,7 +486,6 @@ public class MainActivity extends AppCompatActivity {
 
     private void openWifiSettings() {
         Intent intent = new Intent();
-
         // For Android 9 and above
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             intent.setAction(Settings.ACTION_WIFI_SETTINGS);
@@ -386,9 +493,40 @@ public class MainActivity extends AppCompatActivity {
             // For Android 8 and below
             intent.setAction(Settings.ACTION_WIRELESS_SETTINGS);
         }
-
         // Start the activity
         startActivity(intent);
+    }
+
+    private void requestStoragePermission() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
+                || ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+
+            ActivityCompat.requestPermissions(this, new String[]{
+                    Manifest.permission.READ_EXTERNAL_STORAGE,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE
+            }, STORAGE_PERMISSION_CODE);
+        } else {
+            // 权限已授予
+            accessStorage();
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == STORAGE_PERMISSION_CODE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // 权限授予后可以访问存储器
+                accessStorage();
+            } else {
+                // 权限被拒绝
+                Toast.makeText(this, "Storage permission is required", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    private void accessStorage() {
+        // 执行存储器相关的操作
     }
 
 }
